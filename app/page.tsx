@@ -4,6 +4,8 @@ import Link from 'next/link'
 import Chat from './components/Chat'
 import { createSupabaseClient } from './lib/supabase'
 
+export const dynamic = 'force-dynamic'
+
 export default async function Home() {
   const supabase = createServerComponentClient({ cookies })
 

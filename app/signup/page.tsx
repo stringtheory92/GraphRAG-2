@@ -7,19 +7,29 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 export default function SignUp() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClientComponentClient()
 
   const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${location.origin}/auth/callback`,
-      },
-    })
-    router.push('/')
+    setError(null)
+    setMessage(null)
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${location.origin}/auth/callback`,
+        },
+      })
+      if (error) throw error
+      setMessage('Check your email for the confirmation link.')
+    } catch (error) {
+      console.error('Error during sign up:', error)
+      setError('Failed to sign up. Please try again.')
+    }
   }
 
   return (
@@ -43,6 +53,8 @@ export default function SignUp() {
           Sign Up
         </button>
       </form>
+      {error && <p className="text-red-500 mt-4">{error}</p>}
+      {message && <p className="text-green-500 mt-4">{message}</p>}
     </div>
   )
 }
