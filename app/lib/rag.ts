@@ -38,9 +38,15 @@ function findRelevantDocument(query: string): string {
   let highestScore = 0;
 
   for (const doc of documents) {
-    const score = calculateRelevanceScore(doc.content.toLowerCase(), lowercaseQuery);
-    if (score > highestScore) {
-      highestScore = score;
+    const contentScore = calculateRelevanceScore(doc.content, lowercaseQuery);
+    const questionScore = Math.max(...doc.content.split('\n')
+      .filter(line => line.startsWith('User Question:'))
+      .map(line => calculateRelevanceScore(line, lowercaseQuery)));
+    
+    const combinedScore = (contentScore + questionScore) / 2;
+
+    if (combinedScore > highestScore) {
+      highestScore = combinedScore;
       bestMatch = doc.content;
     }
   }
@@ -49,8 +55,10 @@ function findRelevantDocument(query: string): string {
 }
 
 function calculateRelevanceScore(content: string, query: string): number {
-  const words = query.split(' ');
-  return words.filter(word => content.includes(word)).length / words.length;
+  const contentWords = new Set(content.toLowerCase().split(/\s+/));
+  const queryWords = query.toLowerCase().split(/\s+/);
+  const matchedWords = queryWords.filter(word => contentWords.has(word));
+  return matchedWords.length / queryWords.length;
 }
 
 export function generateResponse(prompt: string): string {
