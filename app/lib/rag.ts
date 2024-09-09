@@ -57,10 +57,22 @@ export function generateResponse(prompt: string): string {
   const relevantContent = findRelevantDocument(prompt);
   const lines = relevantContent.split("\n");
   
-  const userQuestionIndex = lines.findIndex(line => 
-    line.startsWith("User Question:") && 
-    calculateRelevanceScore(line.toLowerCase(), prompt.toLowerCase()) > 0.5
-  );
+  console.log("Prompt:", prompt);
+  console.log("Relevant content:", relevantContent);
+
+  const userQuestionIndex = lines.findIndex(line => {
+    if (line.startsWith("User Question:")) {
+      const question = line.replace("User Question:", "").trim().toLowerCase();
+      const promptLower = prompt.toLowerCase();
+      const similarity = calculateRelevanceScore(question, promptLower);
+      console.log("Question:", question);
+      console.log("Similarity:", similarity);
+      return similarity > 0.7; // Lowered threshold for more lenient matching
+    }
+    return false;
+  });
+
+  console.log("User question index:", userQuestionIndex);
 
   if (userQuestionIndex !== -1 && userQuestionIndex + 1 < lines.length) {
     const response = lines[userQuestionIndex + 1];
