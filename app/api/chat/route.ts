@@ -1,31 +1,18 @@
-import { Configuration, OpenAIApi } from 'openai'
-import { OpenAIStream, StreamingTextResponse } from 'ai'
+import { generateResponse } from '../../lib/rag'
 
-// Create an OpenAI API client (that's edge friendly!)
-const config = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY
-})
-const openai = new OpenAIApi(config)
-
-// IMPORTANT! Set the runtime to edge
 export const runtime = 'edge'
 
 export async function POST(req: Request) {
-  // Extract the `prompt` from the body of the request
   const { messages } = await req.json()
+  const lastMessage = messages[messages.length - 1]
+  
+  if (lastMessage.role !== 'user') {
+    return new Response('Invalid request', { status: 400 })
+  }
 
-  // Ask OpenAI for a streaming chat completion given the prompt
-  const response = await openai.createChatCompletion({
-    model: 'gpt-3.5-turbo',
-    stream: true,
-    messages: messages.map((message: any) => ({
-      content: message.content,
-      role: message.role,
-    })),
+  const response = generateResponse(lastMessage.content)
+
+  return new Response(JSON.stringify({ role: 'assistant', content: response }), {
+    headers: { 'Content-Type': 'application/json' },
   })
-
-  // Convert the response into a friendly text-stream
-  const stream = OpenAIStream(response)
-  // Respond with the stream
-  return new StreamingTextResponse(stream)
 }
