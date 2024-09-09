@@ -60,22 +60,29 @@ export function generateResponse(prompt: string): string {
   console.log("Prompt:", prompt);
   console.log("Relevant content:", relevantContent);
 
-  const userQuestionIndex = lines.findIndex(line => {
+  let bestMatchIndex = -1;
+  let highestSimilarity = 0;
+
+  lines.forEach((line, index) => {
     if (line.startsWith("User Question:")) {
       const question = line.replace("User Question:", "").trim().toLowerCase();
       const promptLower = prompt.toLowerCase();
       const similarity = calculateRelevanceScore(question, promptLower);
       console.log("Question:", question);
       console.log("Similarity:", similarity);
-      return similarity > 0.7; // Lowered threshold for more lenient matching
+      
+      if (similarity > highestSimilarity) {
+        highestSimilarity = similarity;
+        bestMatchIndex = index;
+      }
     }
-    return false;
   });
 
-  console.log("User question index:", userQuestionIndex);
+  console.log("Best match index:", bestMatchIndex);
+  console.log("Highest similarity:", highestSimilarity);
 
-  if (userQuestionIndex !== -1 && userQuestionIndex + 1 < lines.length) {
-    const response = lines[userQuestionIndex + 1];
+  if (bestMatchIndex !== -1 && bestMatchIndex + 1 < lines.length) {
+    const response = lines[bestMatchIndex + 1];
     if (response.startsWith("Influencer:")) {
       return response.replace("Influencer:", "").trim();
     }
