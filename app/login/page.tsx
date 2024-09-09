@@ -28,6 +28,22 @@ export default function Login() {
     }
   }
 
+  const handleTestLogin = async () => {
+    setError(null)
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: 'test@example.com',
+        password: 'testpassword123',
+      })
+      if (error) throw error
+      router.push('/')
+      router.refresh()
+    } catch (error) {
+      console.error('Error during test login:', error)
+      setError('Failed to sign in with test account. Please try again.')
+    }
+  }
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen py-2">
       <form onSubmit={handleSignIn} className="flex flex-col space-y-4">
@@ -49,6 +65,12 @@ export default function Login() {
           Sign In
         </button>
       </form>
+      <button 
+        onClick={handleTestLogin} 
+        className="mt-4 px-4 py-2 bg-green-500 text-white rounded-md"
+      >
+        Use Test Account
+      </button>
       {error && <p className="text-red-500 mt-4">{error}</p>}
     </div>
   )
