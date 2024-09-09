@@ -34,26 +34,40 @@ Influencer: Growing your email list is crucial as a creator. Offer valuable lead
 
 function findRelevantDocument(query: string): string {
   const lowercaseQuery = query.toLowerCase();
+  let bestMatch = "";
+  let highestScore = 0;
+
   for (const doc of documents) {
-    if (doc.content.toLowerCase().includes(lowercaseQuery)) {
-      return doc.content;
+    const score = calculateRelevanceScore(doc.content.toLowerCase(), lowercaseQuery);
+    if (score > highestScore) {
+      highestScore = score;
+      bestMatch = doc.content;
     }
   }
-  return "I'm sorry, I don't have information about that topic in my knowledge base.";
+
+  return bestMatch || "I'm sorry, I don't have information about that topic in my knowledge base.";
+}
+
+function calculateRelevanceScore(content: string, query: string): number {
+  const words = query.split(' ');
+  return words.filter(word => content.includes(word)).length / words.length;
 }
 
 export function generateResponse(prompt: string): string {
   const relevantContent = findRelevantDocument(prompt);
   const lines = relevantContent.split("\n");
-  const response = lines.find(
-    (line) =>
-      line.startsWith("Influencer:") &&
-      line.toLowerCase().includes(prompt.toLowerCase())
+  
+  const userQuestionIndex = lines.findIndex(line => 
+    line.startsWith("User Question:") && 
+    calculateRelevanceScore(line.toLowerCase(), prompt.toLowerCase()) > 0.5
   );
 
-  if (response) {
-    return response.replace("Influencer:", "").trim();
-  } else {
-    return "I'm sorry, I couldn't find a specific answer to your question. Could you please rephrase or ask about a different topic?";
+  if (userQuestionIndex !== -1 && userQuestionIndex + 1 < lines.length) {
+    const response = lines[userQuestionIndex + 1];
+    if (response.startsWith("Influencer:")) {
+      return response.replace("Influencer:", "").trim();
+    }
   }
+
+  return "I'm sorry, I couldn't find a specific answer to your question. Could you please rephrase or ask about a different topic?";
 }
