@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { createSupabaseClient } from './lib/supabase'
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",

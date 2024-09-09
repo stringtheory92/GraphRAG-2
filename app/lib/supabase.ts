@@ -8,3 +8,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// Export a function to create a new Supabase client
+export const createSupabaseClient = () => createClient(supabaseUrl, supabaseAnonKey)
