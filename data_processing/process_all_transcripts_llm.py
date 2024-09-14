@@ -1,6 +1,7 @@
 import os
 import json
 import ollama  
+import re
 
 def load_json(file_path):
     """Loads the JSON file."""
@@ -72,36 +73,44 @@ def extract_question_and_tags(text, model_name="llama2:latest"):
     Transcript: {text}
 
     Please respond with the inferred question first, followed by a list of keywords.
-
     """
+
     # prompt = f"""
-    # You are given a section of a transcript. Your task is to generate a list of keywords that can help someone search for this information. 
-    # Please follow these rules:
-    # 1. Only return the list of keywords as strings.
+    # You are given a transcript of a conversation. The transcript contains both the question
+    # and the response, but the question, while usually located toward the beginning of the body of text, is not explicitly marked. It may be fragmented or unclear
+    # and must be inferred from the response. Your tasks fall into three categories:
+
+    # Questions:
+    # 1. Questions, if they explicitly exist in the text, can be in the form of a statement or phrased more as a question.
+    # 2. Questions, if they explicitly exist in the text, are usually towards the beginning of the text body, after any 'thank you' or general chatting
+    # 3. Regardless whether or not a question is found, to ensure usefulness, infer the most relevant question being answered in the transcript. Use the context of the response to help determine the question. 
+    # 4. If a question was found, combine the question with inferred most relevant question to form a comprehensive question to represent the response
+    # 5. If a question was not found, form a question based on inferred most relevant question from the text.
+    # 6. Only return the question portion of your response. DO NOT ADD ANY ADDITIONAL TEXT BEFORE OR AFTER THE QUESTION. 
+
+    # Keywords:
+    # 1. Only return the list of keywords as strings, one keyword per string per index.
     # 2. Do not include any numbers, symbols, or extra words like "Sure!", "Here are", "Keywords:", or other similar phrases.
     # 3. Each keyword should be a single word or short phrase without additional formatting.
-    # 4. Return the list as plain strings, one keyword per line.
+    # 4. Return the list as plain strings, one keyword per list index.
     # 5. DO NOT INCLUDE ANY NUMERATION, ADDITIONAL COMMENTS, OR ANY OTHER TEXT AT ALL. ONLY 1 KEYWORD PER INDEX AND NOTHING MORE
 
+    # Date:
+    # 1. Infer the date from the title. 
+    # 2. Return date in the following format: 'yyyy-mm-dd'
+    # 3. DO NOT INCLUDE ANY ADDITIONAL TEXT OR COMMENTS, PUNCTUATION OR SPACES. ONLY RESPOND WITH THE FORMATTED DATE
 
-    # Section: {text}
+    # The inferred question should be a complete sentence, as if someone had asked it directly.
+    # The tags should be one-word or simple keyword phrases, uniquely representative of the body of text. The tags should each point to a main topic of that section
 
-    # Please respond with the clean list of keywords.
+    # Transcript: {text}
 
-    # example:
-    # Section: "Dr chafee what is your opinion on fruits for someone like myself who's extremely active and trains a lot you always mention that plants are bitter and don't want us to eat them but fruits are sweet so fruits are delicious yeah but but Sugar's a drug and that and that's the main thing so this is why yes you know if something tastes bad that's your brain and your tongue giving you a clear signal inside that there's something bad in there and it says don't eat this spit this out right ..."
-    # Expected Output:   fruits
-    #     sugar
-    #     active lifestyle
-    #     training
-    #     plants
-    #     sweetness
-    #     metabolism
-    #     energy
-    #     fat storage
-    #     fructose
+    # Please respond with the date first, followed by inferred question second, followed by a clean list of keywords last.
 
+    # example response: '2023-01-01', 'Why arent I losing weight on the carnivore diet?', ['weight loss', 'calories', 'meat', 'exercise']
     # """
+   
+    
 
     # Run the prompt through the model using Ollama's API
     response = ollama.chat(model=model_name, messages=[
@@ -122,6 +131,41 @@ def extract_question_and_tags(text, model_name="llama2:latest"):
 
     return inferred_question, clean_tags
 
+
+def extract_date_from_title(title, model_name="llama2:latest"):
+    """
+    Uses Ollama's local model to extract the date from given title
+    """
+    # Define the prompt for the model
+    prompt = f"""
+    You are given the title of a youtube informational video. Your tasks is to extract the date from the title if it exists and format as instructed below:
+
+    1. Infer the date from the title. 
+    2. Return date in the following format: 'yyyy-mm-dd'
+    3. If a date does not exist, return None
+    4. DO NOT APPEND OR PREPEND ANY TEXT OR SPACES TO THE FORMATTED DATE.
+    5. DO NOT INCLUDE ANY ADDITIONAL TEXT OR COMMENTS, PUNCTUATION OR SPACES. ONLY RESPOND WITH THE FORMATTED DATE
+    6. ONLY RETURN THE FORMATTED DATE STRING OR NONE
+
+    Title: {title}
+    """
+
+    # Run the prompt through the model using Ollama's API
+    response = ollama.chat(model=model_name, messages=[
+        {
+            'role': 'user',
+            'content': prompt
+        }
+    ])
+
+    # Extract the message content from the response dictionary
+    message_content = response['message']['content']
+
+    date = message_content.strip().split("\n")
+    date = clean_date(date)
+
+    return date
+
 def clean_keywords(raw_keywords):
     """
     Cleans the raw keywords by removing numbers, 'Keywords:' and other irrelevant data,
@@ -138,6 +182,23 @@ def clean_keywords(raw_keywords):
             clean_list.append(keyword)
     return clean_list
 
+def clean_date(raw_date):
+    """Account for irregular llm output when inferring date"""
+    # Regular expression to match dates in yyyy-mm-dd format
+    date_pattern = re.compile(r'\d{4}-\d{2}-\d{2}')
+    
+    # Iterate through the data and extract the date
+    
+    for item in raw_date:
+        match = date_pattern.search(item)
+        if match:
+            return match.group(0) 
+    # for entry in raw_date:
+    #     date_list = entry.get("date", [])
+    #     for item in date_list:
+    #         match = date_pattern.search(item)
+    #         if match:
+    #             return match.group(0) 
 
 
 def process_batch_files(input_dir, model_name="llama2:latest"):
@@ -153,13 +214,16 @@ def process_batch_files(input_dir, model_name="llama2:latest"):
             # Process each section in the JSON data
             for section in data:
                 text = section["transcript"]
+                title = section["title"]
 
                 # Use the LLM to extract the question and tags
                 question, tags = extract_question_and_tags(text, model_name=model_name)
+                date = extract_date_from_title(title, model_name=model_name)
 
                 # Add the extracted question and tags as metadata
                 section["tags"] = tags
                 section["question"] = question
+                section["date"] = date
 
             # Save the updated JSON file
             save_json(data, file_path)

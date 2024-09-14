@@ -9,9 +9,12 @@ from langchain import OpenAI, LLMChain
 load_dotenv()
 
 neo4j_password = os.getenv("NEO4JAURA_INSTANCE_PASSWORD")
+neo4j_username = os.getenv("NEO4JAURA_INSTANCE_URI")
+neo4j_uri = os.getenv("NEO4JAURA_INSTANCE_USERNAME")
+
 # Connection to your Neo4j instance
-uri = "neo4j+s://0c143033.databases.neo4j.io:7687"
-username = "neo4j"
+uri = neo4j_uri
+username = neo4j_username
 password = neo4j_password
 
 driver = GraphDatabase.driver(uri, auth=(username, password))
