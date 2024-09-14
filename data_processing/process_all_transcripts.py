@@ -179,7 +179,7 @@ def process_directory(input_dir, output_dir):
 # Example usage:
 # Specify the input and output directories
 input_directory = "test_transcripts"
-output_directory = "batched_processed_files"
+output_directory = "data_processing/batched_processed_files"
 
 # Process all JSON files in the input directory
 process_directory(input_directory, output_directory)

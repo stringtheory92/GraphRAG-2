@@ -1,3 +1,17 @@
+Data lives in test_transcripts
+
+To run initial processing, From root, run
+
+```bash
+python -m data_processing.process_all_transcripts
+```
+
+Then to generate tags per segment, run
+
+```bash
+python -m data_processing.process_all_transcripts_llm
+```
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
