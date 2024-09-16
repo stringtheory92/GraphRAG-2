@@ -1,16 +1,13 @@
 # import os
 # from neo4j import GraphDatabase
-# from neo4j_genai import Neo4jGenAI
 # from dotenv import load_dotenv
-# import ollama  
-
-# from langchain import OpenAI, LLMChain
+# import json
 
 # load_dotenv()
 
 # neo4j_password = os.getenv("NEO4JAURA_INSTANCE_PASSWORD")
-# neo4j_username = os.getenv("NEO4JAURA_INSTANCE_URI")
-# neo4j_uri = os.getenv("NEO4JAURA_INSTANCE_USERNAME")
+# neo4j_username = os.getenv("NEO4JAURA_INSTANCE_USERNAME")
+# neo4j_uri = os.getenv("NEO4JAURA_INSTANCE_URI")
 
 # # Connect to the Neo4j database
 # uri = neo4j_uri
@@ -19,99 +16,153 @@
 
 # driver = GraphDatabase.driver(uri, auth=(username, password))
 
-# def add_data_to_neo4j(data):
+# def load_json(file_path):
+#     """Loads the JSON file."""
+#     with open(file_path, 'r') as f:
+#         return json.load(f)
+
+# def add_data_to_neo4j(question_data):
 #     with driver.session() as session:
-#         # Add Question Node and let Neo4j assign the ID
-#         result = session.run(
-#             "CREATE (q:Question {question: $question, date: $date}) RETURN ID(q) as qid",
-#             question=data['question'], date=data['date']
-#         )
-#         question_id = result.single()['qid']  # Retrieve the auto-generated question ID
-        
-#         # Add Topic Node and associate it with the Question
-#         session.run(
-#             """
-#             MERGE (t:Topic {name: $name})
-#             WITH t
-#             MATCH (q:Question) WHERE ID(q) = $qid
-#             MERGE (q)-[:HAS_TOPIC]->(t)
-#             """,
-#             name=data['topic'], qid=question_id
-#         )
-        
-#         # Add Body Node and let Neo4j assign the ID
-#         body = data['body']
-#         result = session.run(
-#             "CREATE (b:Body {text: $text, date: $date}) RETURN ID(b) as bid",
-#             text=body['text'], date=body['date']
-#         )
-#         body_id = result.single()['bid']  # Retrieve the auto-generated body ID
-        
-#         # Add Keywords as separate nodes and relationships to Body
-#         for keyword in body['keywords']:
+#         for question in question_data:
+#             # Add Question Node
+#             session.run(
+#                 "CREATE (q:Question {id: randomUUID(), text: $text, date: $date, topic: $topic})",
+#                 text=question['question'], date=question['date'], topic=question['topic']
+#             )
+            
+#             # Add Body Node
+#             body = question['body']
+#             session.run(
+#                 "CREATE (b:Body {id: randomUUID(), text: $text, date: $date})",
+#                 text=body['text'], date=body['date']
+#             )
+            
+#             # Create the HAS_BODY relationship
 #             session.run(
 #                 """
-#                 MERGE (k:Keyword {word: $word})
-#                 WITH k
-#                 MATCH (b:Body) WHERE ID(b) = $bid
-#                 MERGE (b)-[:HAS_KEYWORD]->(k)
+#                 MATCH (q:Question {text: $qtext}), (b:Body {text: $btext})
+#                 CREATE (q)-[:HAS_BODY]->(b)
 #                 """,
-#                 word=keyword, bid=body_id
+#                 qtext=question['question'], btext=body['text']
 #             )
-        
-#         # Create the HAS_BODY relationship between Question and Body using Neo4j-generated IDs
-#         session.run(
-#             """
-#             MATCH (q:Question), (b:Body)
-#             WHERE ID(q) = $qid AND ID(b) = $bid
-#             CREATE (q)-[:HAS_BODY]->(b)
-#             """,
-#             qid=question_id, bid=body_id
-#         )
 
-# if __name__ == '__main__':
+#             # Add Topic Node and Relationship (if a topic exists)
+#             if 'topic' in question:
+#                 session.run(
+#                     """
+#                     MERGE (t:Topic {name: $topic})
+#                     WITH t
+#                     MATCH (q:Question {text: $qtext})
+#                     MERGE (q)-[:HAS_TOPIC]->(t)
+#                     """,
+#                     topic=question['topic'], qtext=question['question']
+#                 )
+            
+#             # Check if 'tags' exists in the body before trying to add them
+#             if 'tags' in body:
+#                 for tag in body['tags']:
+#                     session.run(
+#                         """
+#                         MERGE (t:Tag {word: $word})
+#                         WITH t
+#                         MATCH (b:Body {text: $btext})
+#                         MERGE (b)-[:HAS_TAG]->(t)
+#                         """,
+#                         word=tag, btext=body['text']
+#                     )
 
+# def main():
+#     # Load data
+#     file_path = "manually_cleaned_data/test_ingest_data/ingest_data.json"
+#     data = load_json(file_path)
 
-#     # Example Data (your settled structure)
-#     # data = {
-#     #     "question": "What are the benefits of a carnivore diet?",
-#     #     "topic": "benefits of the carnivore diet",
-#     #     "date": "2023-09-12",
-#     #     "body": {
-#     #         "text": "A carnivore diet focuses primarily on meat consumption...",
-#     #         "date": "2023-09-12",
-#     #         "keywords": ["carnivore diet", "meat", "health", "nutrition"]
-#     #     }
-#     # }
-
-#     # Add the data to Neo4j
+#     # Ingest data into Neo4j
 #     add_data_to_neo4j(data)
+
+# if __name__ == "__main__":
+#     main()
+
 
 
 import os
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
 import json
+from google_drive_auth import authenticate_google_drive
+from googleapiclient.http import MediaFileUpload
 
 load_dotenv()
 
+# Google Drive Authentication
+service = authenticate_google_drive()
+
+# Neo4j Configuration
 neo4j_password = os.getenv("NEO4JAURA_INSTANCE_PASSWORD")
 neo4j_username = os.getenv("NEO4JAURA_INSTANCE_USERNAME")
 neo4j_uri = os.getenv("NEO4JAURA_INSTANCE_URI")
 
 # Connect to the Neo4j database
-uri = neo4j_uri
-username = neo4j_username
-password = neo4j_password
-
-driver = GraphDatabase.driver(uri, auth=(username, password))
+driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
 
 def load_json(file_path):
     """Loads the JSON file."""
     with open(file_path, 'r') as f:
         return json.load(f)
 
-def add_data_to_neo4j(question_data):
+def get_or_create_carnivore_folder(service):
+    """Get the 'carnivore' folder ID, or create it if it doesn't exist."""
+    # Search for the 'carnivore' folder in Google Drive
+    query = "name = 'carnivore' and mimeType = 'application/vnd.google-apps.folder'"
+    results = service.files().list(q=query, fields="files(id, name)").execute()
+    folders = results.get('files', [])
+    
+    if folders:
+        # Folder exists, return its ID
+        return folders[0]['id']
+    else:
+        # Create the 'carnivore' folder
+        file_metadata = {
+            'name': 'carnivore',
+            'mimeType': 'application/vnd.google-apps.folder'
+        }
+        folder = service.files().create(body=file_metadata, fields='id').execute()
+        return folder.get('id')
+
+def upload_to_drive(service, file_name, text_content):
+    """Uploads the given text to Google Drive inside the 'carnivore' folder and tags it as 'api-generated'."""
+    # Get or create the 'carnivore' folder
+    folder_id = get_or_create_carnivore_folder(service)
+    
+    # Save the content to a temporary file
+    temp_file_path = f'/tmp/{file_name}.txt'
+    with open(temp_file_path, 'w') as f:
+        f.write(text_content)
+    
+    # Define metadata for the file, including the 'api-generated' tag in the description
+    file_metadata = {
+        'name': file_name,
+        'parents': [folder_id],  # Upload to the 'carnivore' folder
+        'mimeType': 'text/plain',
+        'description': 'api-generated'  # Add 'api-generated' tag to the file
+    }
+    
+    # Upload the file to Google Drive
+    media = MediaFileUpload(temp_file_path, mimetype='text/plain')
+    uploaded_file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    
+    # Get the file ID and create a sharable link
+    file_id = uploaded_file.get('id')
+    service.permissions().create(
+        fileId=file_id,
+        body={'type': 'anyone', 'role': 'reader'}  # Make the file publicly accessible
+    ).execute()
+    
+    # Return the sharable Google Drive link
+    return f"https://drive.google.com/uc?id={file_id}"
+
+
+
+def add_data_to_neo4j(question_data, service):
     with driver.session() as session:
         for question in question_data:
             # Add Question Node
@@ -120,20 +171,24 @@ def add_data_to_neo4j(question_data):
                 text=question['question'], date=question['date'], topic=question['topic']
             )
             
-            # Add Body Node
+            # Upload body text to Google Drive and get the link
             body = question['body']
+            file_name = f"body_text_{question['date']}"
+            drive_link = upload_to_drive(service, file_name, body['text'])
+
+            # Add Body Node with reference to Google Drive text
             session.run(
-                "CREATE (b:Body {id: randomUUID(), text: $text, date: $date})",
-                text=body['text'], date=body['date']
+                "CREATE (b:Body {id: randomUUID(), text_link: $text_link, date: $date})",
+                text_link=drive_link, date=body['date']
             )
             
             # Create the HAS_BODY relationship
             session.run(
                 """
-                MATCH (q:Question {text: $qtext}), (b:Body {text: $btext})
+                MATCH (q:Question {text: $qtext}), (b:Body {text_link: $btext_link})
                 CREATE (q)-[:HAS_BODY]->(b)
                 """,
-                qtext=question['question'], btext=body['text']
+                qtext=question['question'], btext_link=drive_link
             )
 
             # Add Topic Node and Relationship (if a topic exists)
@@ -155,10 +210,10 @@ def add_data_to_neo4j(question_data):
                         """
                         MERGE (t:Tag {word: $word})
                         WITH t
-                        MATCH (b:Body {text: $btext})
+                        MATCH (b:Body {text_link: $btext_link})
                         MERGE (b)-[:HAS_TAG]->(t)
                         """,
-                        word=tag, btext=body['text']
+                        word=tag, btext_link=drive_link
                     )
 
 def main():
@@ -167,7 +222,7 @@ def main():
     data = load_json(file_path)
 
     # Ingest data into Neo4j
-    add_data_to_neo4j(data)
+    add_data_to_neo4j(data, service)
 
 if __name__ == "__main__":
     main()
