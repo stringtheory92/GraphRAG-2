@@ -12,6 +12,26 @@ Then to generate tags per segment, run
 python -m data_processing.process_all_transcripts_llm
 ```
 
+# Data Structure for Neo4j Graph Database
+
+This section describes the optimal data structure for storing and querying questions and responses in a Neo4j graph database.
+
+## Graph Nodes
+
+1. **Question Node**:
+
+   - Represents the user's question.
+   - Attributes:
+     - `id`: Unique identifier for the question.
+     - `text`: The question text.
+     - `date`: The date when the question was asked.
+
+   **Example**:
+
+   ```cypher
+   CREATE (q:Question {id: "q1", text: "What are the benefits of a carnivore diet?", date: "2023-09-12"})
+   ```
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

@@ -1,7 +1,8 @@
 1 Integrate rag with Llama Index
 2 Do Knowledge graph according to this https://neo4j.com/developer-blog/graphrag-llm-knowledge-graph-builder/
 
-OR THIS: 6. Adding Data to Neo4j (For the First Time)
+OR THIS: 
+6. Adding Data to Neo4j (For the First Time)
 If you need to populate your Neo4j database with initial topics and responses:
 
 Open Neo4j Browser.
@@ -209,3 +210,10 @@ nodes = node_parser.get_nodes_from_documents([document])
 # Create the index
 index = VectorStoreIndex(nodes)
 ```
+
+
+9/16/24
+Future Setup:
+1. Neo4j: Store relationships, metadata (e.g., tags, topics, dates), and references (e.g., document IDs or external storage references for the actual text).
+2. Vector Database: Store and search embeddings for similarity-based retrieval.
+3. External Storage (Optional): Use for long text fields if it becomes too cumbersome for Neo4j.
