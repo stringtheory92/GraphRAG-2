@@ -216,4 +216,11 @@ index = VectorStoreIndex(nodes)
 Future Setup:
 1. Neo4j: Store relationships, metadata (e.g., tags, topics, dates), and references (e.g., document IDs or external storage references for the actual text).
 2. Vector Database: Store and search embeddings for similarity-based retrieval.
-3. External Storage (Optional): Use for long text fields if it becomes too cumbersome for Neo4j.
+3. External Storage - Google Drive (adamkabak@gmail.com): stores ["body"]["text"] fields. neo4j body text stores a link to the drive doc
+    
+
+Google Drive:
+GCP project: aigency-test
+All controls in the cloud console under Enabled API's & Services
+Local credentials in my credentials folder on desktop
+add test users in the console to grant access to others (Antonio)
