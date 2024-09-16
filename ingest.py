@@ -90,12 +90,8 @@
 
 import os
 from neo4j import GraphDatabase
-# from neo4j_genai import Neo4jGenAI
 from dotenv import load_dotenv
-import ollama  
 import json
-
-# from langchain import OpenAI, LLMChain
 
 load_dotenv()
 
@@ -166,7 +162,7 @@ def add_data_to_neo4j(question_data):
                     )
 
 def main():
-    # Load data from the manually_cleaned_data/test_ingest_data/ingest_data.json file
+    # Load data
     file_path = "manually_cleaned_data/test_ingest_data/ingest_data.json"
     data = load_json(file_path)
 
