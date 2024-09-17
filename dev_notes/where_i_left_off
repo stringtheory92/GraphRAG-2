@@ -224,3 +224,17 @@ GCP project: aigency-test
 All controls in the cloud console under Enabled API's & Services
 Local credentials in my credentials folder on desktop
 add test users in the console to grant access to others (Antonio)
+
+
+End of Day (EOD):
+Ingest:
+ingest.py appears to work as expected. All dbs populate - Neo4j, drive, supabase vector
+Need to verify that all data is loading. Neo4J graph looks particularly light
+
+Retrieval:
+Just started on this part. Need to generate embeddings for user question, upload to vectorstore, then return most similar questions based on cosine_similarity
+Still get errors on the cosine_similarity
+
+Clearing/Reset:
+Old version (commented out) works perfectly for clearing all dbs. Fine for full reset, as ingest.py then resets
+New version with args for dbs to clear is untested
