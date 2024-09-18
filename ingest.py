@@ -242,6 +242,8 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from supabase.lib.client_options import ClientOptions  # Updated import
 from loguru import logger
 
+# TODO: Create indexes on embeddings for faster lookup
+
 # Load environment variables
 load_dotenv()
 
@@ -415,70 +417,6 @@ def add_data_to_neo4j(question_data, service):
             except Exception as e:
                 logger.error(f"Error processing question {index + 1}: {e}")
                 continue
-# def add_data_to_neo4j(question_data, service):
-#     with driver.session() as session:
-#         for question in question_data:
-#             logger.info(f"Processing question: {question['question']}")
-#             result = session.run(
-#                 """
-#                 CREATE (q:Question {id: randomUUID(), text: $text, date: $date, topic: $topic}) 
-#                 RETURN q.id AS question_id
-#                 """, text=question['question'], date=question['date'], topic=question['topic']
-#             )
-#             question_id = result.single()['question_id']
-#             logger.info(f"Question added with ID: {question_id}")
-
-#             embedding = generate_embedding(question['question'])
-
-#             # Store the embedding directly as a property in Neo4j
-#             session.run(
-#                 """
-#                 MATCH (q:Question {id: $qid})
-#                 SET q.embedding = $embedding
-#                 """, qid=question_id, embedding=embedding
-#             )
-#             logger.info(f"Embedding added to Question ID: {question_id}")
-
-#             body = question['body']
-#             file_name = f"body_text_{question['date']}"
-#             drive_link = upload_to_drive(service, file_name, body['text'])
-
-#             session.run(
-#                 "CREATE (b:Body {id: randomUUID(), text_link: $text_link, date: $date})",
-#                 text_link=drive_link, date=body['date']
-#             )
-#             logger.info(f"Body added with Google Drive link: {drive_link}")
-
-#             session.run(
-#                 """
-#                 MATCH (q:Question {id: $qid}), (b:Body {text_link: $btext_link})
-#                 CREATE (q)-[:HAS_BODY]->(b)
-#                 """, qid=question_id, btext_link=drive_link
-#             )
-#             logger.info(f"Created HAS_BODY relationship between Question ID: {question_id} and Body with link: {drive_link}")
-
-#             if 'topic' in question:
-#                 session.run(
-#                     """
-#                     MERGE (t:Topic {name: $topic})
-#                     WITH t
-#                     MATCH (q:Question {id: $qid})
-#                     MERGE (q)-[:HAS_TOPIC]->(t)
-#                     """, topic=question['topic'], qid=question_id
-#                 )
-#                 logger.info(f"Added Topic relationship for Question ID: {question_id} and Topic: {question['topic']}")
-
-#             if 'tags' in body:
-#                 for tag in body['tags']:
-#                     session.run(
-#                         """
-#                         MERGE (t:Tag {word: $word})
-#                         WITH t
-#                         MATCH (b:Body {text_link: $btext_link})
-#                         MERGE (b)-[:HAS_TAG]->(t)
-#                         """, word=tag, btext_link=drive_link
-#                     )
-#                     logger.info(f"Tag {tag} added to Body with link: {drive_link}")
 
 def main():
     file_path = "manually_cleaned_data/test_ingest_data/ingest_data.json"
