@@ -1,63 +1,202 @@
 import os
+import logging
 from neo4j import GraphDatabase
-from neo4j_genai import Neo4jGenAI
+from neo4j_genai.retrievers import VectorRetriever
 from dotenv import load_dotenv
-import ollama  
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from loguru import logger
 
-from langchain import OpenAI, LLMChain
+# TODO: Generate node with embedding for user question, link to the body associated with the top matching question, generate topic node for new question
 
+# Load environment variables
 load_dotenv()
 
+# Neo4j Configuration
 neo4j_password = os.getenv("NEO4JAURA_INSTANCE_PASSWORD")
-neo4j_username = os.getenv("NEO4JAURA_INSTANCE_URI")
-neo4j_uri = os.getenv("NEO4JAURA_INSTANCE_USERNAME")
+neo4j_username = os.getenv("NEO4JAURA_INSTANCE_USERNAME")
+neo4j_uri = os.getenv("NEO4JAURA_INSTANCE_URI")
 
-# Connection to your Neo4j instance
-uri = neo4j_uri
-username = neo4j_username
-password = neo4j_password
+# Connect to the Neo4j database
+driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
+logger.info("Neo4j driver initialized")
 
-driver = GraphDatabase.driver(uri, auth=(username, password))
+# Hugging Face Embeddings Model (same model used for ingestion)
+embed_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+logger.info("Hugging Face Embeddings model loaded")
 
-# Initialize Neo4jGenAI
-genai = Neo4jGenAI(driver)
+def generate_embedding(text):
+    """Generates an embedding for the given text."""
+    logger.info(f"Generating embedding for query: {text[:50]}...")
+    embedding = embed_model.embed_documents([text])[0]
+    logger.info(f"Generated embedding of length: {len(embedding)}")
+    return embedding
 
-# Sample query to retrieve data
-query = """
-MATCH (r:Response)-[:RELATED_TO]->(t:Topic)
-WHERE t.name = $topic
-RETURN r.text AS response
-"""
+def retrieve_similar_questions(query):
+    """Retrieve semantically similar questions from Neo4j using the Neo4j GenAI package."""
+    logger.info(f"Starting retrieval for query: {query}")
 
-topic_name = "carnivore diet"  # Example topic
-results = genai.query(query, {"topic": topic_name})
+    # Initialize the retriever
+    retriever = VectorRetriever(
+        driver=driver,
+        embedding_fn=embed_model.embed_query,  # Function to generate embeddings
+        top_k=2  # Retrieve top 5 similar results
+    )
 
-for record in results:
-    print(record["response"])
+    # Perform the retrieval
+    results = retriever.retrieve(query)
+    
+    # If no results found
+    if not results:
+        logger.warning("No similar questions found.")
+        return []
+    
+    # Collect the questions and their related nodes (Body, Topic, etc.)
+    collected_results = []
+    for result in results:
+        question_id = result['id']
+        logger.info(f"Found similar question: {result['text']} with ID: {question_id}")
+
+        # Query for related nodes (Body, Topic, etc.)
+        with driver.session() as session:
+            # Get the body link associated with the question
+            body_result = session.run(
+                """
+                MATCH (q:Question {id: $qid})-[:HAS_BODY]->(b:Body)
+                RETURN b.text_link AS body_link
+                """, qid=question_id
+            ).single()
+
+            # Get the topic associated with the question
+            topic_result = session.run(
+                """
+                MATCH (q:Question {id: $qid})-[:HAS_TOPIC]->(t:Topic)
+                RETURN t.name AS topic
+                """, qid=question_id
+            ).single()
+
+        collected_results.append({
+            "question": result["text"],
+            "body_link": body_result["body_link"] if body_result else None,
+            "topic": topic_result["topic"] if topic_result else None,
+        })
+
+    return collected_results
+
+def main():
+    # Example query
+    query = "What is the best diet for muscle gain?"
+
+    # Perform retrieval
+    results = retrieve_similar_questions(query)
+
+    # Output the results
+    for result in results:
+        logger.info(f"Question: {result['question']}")
+        logger.info(f"Related Body Link: {result['body_link']}")
+        logger.info(f"Topic: {result['topic']}")
+
+if __name__ == "__main__":
+    main()
 
 
 
-    # Chain: Neo4j data -> LLM
-def get_neo4j_responses_and_generate(query):
-    # Query Neo4j for relevant responses
-    results = genai.query(query, {"topic": topic_name})
 
-    # Extract responses
-    context = "\n".join([record["response"] for record in results])
 
-    # Prepare a prompt for the LLM based on retrieved context
-    prompt = f"""
-    You are an expert in {topic_name}.
-    Here are some relevant responses:
-    {context}
 
-    Based on this information, provide a detailed answer to the following question:
-    """
+# import os
+# import logging
+# from neo4j import GraphDatabase
+# from neo4j_genai.retrievers import VectorRetriever
+# from dotenv import load_dotenv
+# from langchain_community.embeddings import HuggingFaceEmbeddings
+# from loguru import logger
 
-    # Generate final answer using LLM
-    final_response = llm(prompt)
-    return final_response
+# # TODO: Generate node with embedding for user question, link to the body associated with the top matching question, generate topic node for new question
 
-# Example usage
-response = get_neo4j_responses_and_generate(query)
-print(response)
+# # Load environment variables
+# load_dotenv()
+
+# # Neo4j Configuration
+# neo4j_password = os.getenv("NEO4JAURA_INSTANCE_PASSWORD")
+# neo4j_username = os.getenv("NEO4JAURA_INSTANCE_USERNAME")
+# neo4j_uri = os.getenv("NEO4JAURA_INSTANCE_URI")
+
+# # Connect to the Neo4j database
+# driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
+# logger.info("Neo4j driver initialized")
+
+# # Hugging Face Embeddings Model (same model used for ingestion)
+# embed_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+# logger.info("Hugging Face Embeddings model loaded")
+
+
+# def generate_embedding(text):
+#     """Generates an embedding for the given text."""
+#     logger.info(f"Generating embedding for query: {text[:50]}...")
+#     embedding = embed_model.embed_documents([text])[0]
+#     logger.info(f"Generated embedding of length: {len(embedding)}")
+#     return embedding
+
+# def retrieve_similar_questions(query):
+#     """Retrieve semantically similar questions from Neo4j using the Neo4j GenAI package."""
+#     logger.info(f"Starting retrieval for query: {query}")
+
+#     # When indexing is built in, build retriever like this
+#     # retriever = VectorRetriever(driver, INDEX_NAME, embed_model)
+
+#     retriever = VectorRetriever(
+#         driver=driver,
+#         embedding_fn=embed_model.embed_query,  # The function that returns an embedding for the query
+#         top_k=2  # Number of top similar results to return
+#     )
+
+#     # Generate embedding for the input query
+#     query_embedding = generate_embedding(query)
+    
+#     # Use Neo4j GenAI to search for similar questions
+#     similar_questions = genai.find_similar("Question", "embedding", query_embedding)
+    
+#     # Collect the IDs and any associated information (e.g., body, topic)
+#     results = []
+#     for question in similar_questions:
+#         logger.info(f"Found similar question: {question['text']}")
+        
+#         # Query for related nodes (Body, Topic, etc.)
+#         with driver.session() as session:
+#             body_result = session.run(
+#                 """
+#                 MATCH (q:Question {id: $qid})-[:HAS_BODY]->(b:Body)
+#                 RETURN b.text_link AS body_link
+#                 """, qid=question['id']
+#             ).single()
+            
+#             topic_result = session.run(
+#                 """
+#                 MATCH (q:Question {id: $qid})-[:HAS_TOPIC]->(t:Topic)
+#                 RETURN t.name AS topic
+#                 """, qid=question['id']
+#             ).single()
+
+#         results.append({
+#             "question": question["text"],
+#             "body_link": body_result["body_link"] if body_result else None,
+#             "topic": topic_result["topic"] if topic_result else None,
+#         })
+
+#     return results
+
+# def main():
+#     # Example query
+#     query = "What is the best diet for muscle gain?"
+    
+#     # Perform retrieval
+#     results = retrieve_similar_questions(query)
+    
+#     # Output the results
+#     for result in results:
+#         logger.info(f"Question: {result['question']}")
+#         logger.info(f"Related Body Link: {result['body_link']}")
+#         logger.info(f"Topic: {result['topic']}")
+
+# if __name__ == "__main__":
+#     main()
