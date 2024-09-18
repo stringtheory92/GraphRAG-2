@@ -6,10 +6,11 @@ from dotenv import load_dotenv
 from google_drive_auth import authenticate_google_drive
 from supabase import create_client, Client
 from supabase.lib.client_options import ClientOptions
+from loguru import logger
 
 # Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -19,12 +20,15 @@ neo4j_password = os.getenv("NEO4JAURA_INSTANCE_PASSWORD")
 neo4j_username = os.getenv("NEO4JAURA_INSTANCE_USERNAME")
 neo4j_uri = os.getenv("NEO4JAURA_INSTANCE_URI")
 driver = GraphDatabase.driver(neo4j_uri, auth=(neo4j_username, neo4j_password))
-
+# print(neo4j_password)
+# print(neo4j_username)
+# print(neo4j_uri)
 # Google Drive Authentication
 service = authenticate_google_drive()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+# print(SUPABASE_URL)
 
 # Initialize the Supabase client with the `vector` schema
 client_options = ClientOptions(schema="vector")
@@ -34,7 +38,7 @@ def delete_all_embeddings():
     """Deletes all rows from the vector.embeddings table."""
     try:
         logger.info("Deleting all rows from Supabase vector.embeddings table...")
-        response = supabase.table("embeddings").delete().filter('1', 'eq', '1').execute()
+        response = supabase.table("embeddings").delete().neq('question_id', '6f8b39d6-4f6f-4e22-8e6d-abcde1234567').execute() # check against valid random uuid
         logger.info(f"Deleted rows: {response.data}")
     except Exception as e:
         logger.error(f"Error deleting embeddings: {e}")
